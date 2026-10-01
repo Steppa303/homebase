@@ -168,3 +168,46 @@ test('Statische Dateien und Pfad-Ausbruch', async () => {
     await app.stop();
   }
 });
+
+test('Haustier-Profilbilder: hochladen, abrufen, aufräumen', async () => {
+  const app = await start();
+  try {
+    const jpeg = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(200, 1)]);
+    const data = `data:image/jpeg;base64,${jpeg.toString('base64')}`;
+
+    let r = await app.call('POST', '/api/photos', { data });
+    assert.strictEqual(r.status, 401, 'nur angemeldet');
+    await app.call('POST', '/api/setup', SETUP);
+
+    r = await app.call('POST', '/api/photos', { data: 'data:image/png;base64,AAAA' });
+    assert.strictEqual(r.status, 400, 'nur JPEG');
+    r = await app.call('POST', '/api/photos', { data: `data:image/jpeg;base64,${Buffer.alloc(200).toString('base64')}` });
+    assert.strictEqual(r.status, 400, 'Inhalt muss wirklich JPEG sein');
+
+    r = await app.call('POST', '/api/photos', { data });
+    assert.strictEqual(r.status, 200);
+    const { id } = r.json;
+    r = await app.call('GET', `/api/photos/${id}`);
+    assert.strictEqual(r.status, 200);
+    assert.strictEqual(r.headers.get('content-type'), 'image/jpeg');
+    r = await app.call('GET', '/api/photos/gibtsnicht');
+    assert.strictEqual(r.status, 404);
+
+    const pet = (await app.call('GET', '/api/state')).json.data.pets[0];
+    await app.call('PATCH', `/api/data/pets/${pet.id}`, { photo: id });
+    r = await app.call('POST', '/api/photos', { data });
+    const unused = r.json.id;
+
+    app.clearCookie();
+    r = await app.call('GET', `/api/photos/${id}`);
+    assert.strictEqual(r.status, 401, 'Bilder nur angemeldet');
+
+    // Neustart: benutztes Bild bleibt, unbenutztes wird entfernt
+    app.store.flush();
+    createApp({ dataDir: app.dataDir });
+    assert.ok(fs.existsSync(path.join(app.dataDir, 'photos', `${id}.jpg`)));
+    assert.ok(!fs.existsSync(path.join(app.dataDir, 'photos', `${unused}.jpg`)));
+  } finally {
+    await app.stop();
+  }
+});

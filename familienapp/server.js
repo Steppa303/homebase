@@ -337,6 +337,16 @@ function createApp(options = {}) {
   const clients = new Set();
   const loginAttempts = new Map();
 
+  // Profilbilder der Haustiere liegen als JPEG neben nest.json, damit der
+  // Zustand (der bei jeder Änderung komplett geladen wird) klein bleibt.
+  const photoDir = path.join(dataDir, 'photos');
+  fs.mkdirSync(photoDir, { recursive: true });
+  // Nicht mehr verwendete Bilder (ersetzt, Tier gelöscht) beim Start aufräumen
+  const usedPhotos = new Set(Object.values(store.db.data.pets).map((p) => p.photo).filter(Boolean));
+  for (const f of fs.readdirSync(photoDir)) {
+    if (!usedPhotos.has(path.basename(f, '.jpg'))) fs.unlinkSync(path.join(photoDir, f));
+  }
+
   function broadcast(extra = {}) {
     const payload = `event: change\ndata: ${JSON.stringify({ version: store.db.version, ...extra })}\n\n`;
     for (const res of clients) res.write(payload);
@@ -514,6 +524,27 @@ function createApp(options = {}) {
       const version = store.touch();
       broadcast({ col });
       return send(res, 200, { ok: true, version, item: items[id] || null });
+    }
+
+    if (route === '/photos' && method === 'POST') {
+      const body = await readBody(req, MAX_BODY);
+      const prefix = 'data:image/jpeg;base64,';
+      const buf = typeof body.data === 'string' && body.data.startsWith(prefix) ? Buffer.from(body.data.slice(prefix.length), 'base64') : null;
+      if (!buf || buf.length < 100 || buf[0] !== 0xff || buf[1] !== 0xd8 || buf[2] !== 0xff) return send(res, 400, { error: 'Kein JPEG-Bild' });
+      const id = newId();
+      fs.writeFileSync(path.join(photoDir, `${id}.jpg`), buf);
+      return send(res, 200, { ok: true, id });
+    }
+
+    const photo = route.match(/^\/photos\/([A-Za-z0-9_-]+)$/);
+    if (photo && method === 'GET') {
+      if (!ID_RE.test(photo[1])) return send(res, 404, 'Nicht gefunden');
+      return fs.readFile(path.join(photoDir, `${photo[1]}.jpg`), (err, buf) => {
+        if (err) return send(res, 404, 'Nicht gefunden');
+        // Jede Bild-ID ist einmalig (neues Foto = neue ID), darf also ewig im Cache bleiben
+        res.writeHead(200, { 'Content-Type': 'image/jpeg', 'Cache-Control': 'private, max-age=31536000, immutable' });
+        res.end(buf);
+      });
     }
 
     if (route === '/settings' && method === 'PATCH') {

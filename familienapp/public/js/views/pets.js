@@ -1,10 +1,23 @@
-import { h, svg, icon, uid, today, fmtDate, relDay, ageText, nextBirthday, openModal, field, optionGroup, toast, confirmDialog, emptyState } from '../ui.js';
+import { h, svg, icon, uid, today, fmtDate, relDay, ageText, nextBirthday, openModal, field, optionGroup, toast, confirmDialog, emptyState, petAvatar } from '../ui.js';
+import { api } from '../store.js';
 import { weightSeries, PETLOG_TYPES, whoInfo } from '../domain.js';
 import { feedingCard } from './home.js';
 import { taskRow, editTask } from './tasks.js';
 
 const PET_EMOJIS = ['🐈', '🐈‍⬛', '🐱', '😺', '😸', '😼', '🦁', '🐯'];
 const PET_COLORS = ['#e0a33a', '#7d7fb8', '#c9763d', '#6b9e5a', '#b85f7d', '#5a8fb8'];
+const PHOTO_SIZE = 512;
+
+// Foto quadratisch zuschneiden und verkleinern, damit Handy-Fotos (mehrere MB) klein hochgehen
+async function photoToJpeg(file) {
+  const bmp = await createImageBitmap(file);
+  const side = Math.min(bmp.width, bmp.height);
+  const out = Math.min(PHOTO_SIZE, side);
+  const canvas = h('canvas', { width: out, height: out });
+  canvas.getContext('2d').drawImage(bmp, (bmp.width - side) / 2, (bmp.height - side) / 2, side, side, 0, 0, out, out);
+  bmp.close?.();
+  return canvas.toDataURL('image/jpeg', 0.85);
+}
 
 function editPet(store, pet = {}) {
   const isNew = !pet.id;
@@ -19,10 +32,35 @@ function editPet(store, pet = {}) {
   const vet = h('input', { class: 'input', value: p.vet, placeholder: 'Praxis', maxlength: 100 });
   const vetPhone = h('input', { class: 'input', type: 'tel', value: p.vetPhone, placeholder: 'Telefon', maxlength: 40 });
   const notes = h('textarea', { class: 'input', placeholder: 'Allergien, Eigenheiten, Lieblingsspielzeug …', maxlength: 2000 }, p.notes || '');
+  let photo = p.photo || '';
+  const preview = h('span');
+  const removePhoto = h('button', { class: 'btn small', type: 'button', onclick: () => { photo = ''; showPhoto(); } }, 'Entfernen');
+  const pickPhoto = h('button', { class: 'btn small', type: 'button', onclick: () => fileInput.click() }, icon('plus'), 'Foto wählen');
+  const showPhoto = () => {
+    preview.replaceChildren(petAvatar({ ...p, emoji: emoji.value, color: color.value, photo }, 'xl'));
+    removePhoto.style.display = photo ? '' : 'none';
+    pickPhoto.lastChild.textContent = photo ? 'Anderes Foto' : 'Foto wählen';
+  };
+  const fileInput = h('input', { type: 'file', accept: 'image/*', hidden: true, onchange: async () => {
+    const file = fileInput.files[0];
+    fileInput.value = '';
+    if (!file) return;
+    pickPhoto.disabled = true;
+    try {
+      const { id } = await api('POST', '/api/photos', { data: await photoToJpeg(file) });
+      photo = id;
+      showPhoto();
+    } catch (err) {
+      toast(err.status ? `Foto ging nicht: ${err.message}` : 'Foto ging nicht – bist du online?');
+    } finally {
+      pickPhoto.disabled = false;
+    }
+  } });
+  showPhoto();
   const save = () => {
     if (!name.value.trim()) { name.focus(); return; }
     store.put('pets', {
-      ...pet, id: pet.id || uid(), name: name.value.trim(), emoji: emoji.value, color: color.value, birthday: birthday.value,
+      ...pet, id: pet.id || uid(), name: name.value.trim(), emoji: emoji.value, color: color.value, photo, birthday: birthday.value,
       breed: breed.value.trim(), chip: chip.value.trim(), food: food.value.trim(), vet: vet.value.trim(), vetPhone: vetPhone.value.trim(), notes: notes.value.trim(),
     });
     m.close();
@@ -30,8 +68,9 @@ function editPet(store, pet = {}) {
   const m = openModal({
     title: isNew ? 'Neues Haustier' : `${p.name} bearbeiten`,
     body: h('form', { onsubmit: (e) => { e.preventDefault(); save(); } },
+      h('div', { class: 'pet-photo-edit' }, preview, h('div', { class: 'pet-photo-btns' }, pickPhoto, removePhoto, fileInput)),
       h('div', { class: 'field-row' }, field('Name', name), field('Farbe', color)),
-      field('Symbol', emoji.el),
+      field('Symbol', emoji.el, 'Wird gezeigt, solange kein Foto da ist'),
       h('div', { class: 'field-row' }, field('Geburtstag', birthday), field('Rasse', breed)),
       field('Chip-Nummer', chip),
       field('Futter', food),
@@ -133,7 +172,7 @@ function petCard(store, pet) {
 
   return h('div', { class: 'card pet-card' },
     h('div', { class: 'pet-top' },
-      h('span', { class: 'avatar lg', style: { background: pet.color } }, pet.emoji),
+      petAvatar(pet, 'lg'),
       h('div', { class: 'grow' }, h('h2', null, pet.name), pet.birthday ? h('div', { class: 'age' }, ageText(pet.birthday)) : null),
       h('button', { class: 'icon-btn', type: 'button', 'aria-label': `${pet.name} bearbeiten`, onclick: () => editPet(store, pet) }, icon('edit')),
     ),

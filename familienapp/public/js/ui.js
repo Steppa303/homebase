@@ -293,6 +293,17 @@ export function avatar(entity, size = '') {
   return h('span', { class: `avatar ${size}`, style: { background: entity.color || 'var(--muted)' }, title: entity.name }, entity.emoji || entity.name?.[0] || '?');
 }
 
+// Haustier mit Profilbild (falls vorhanden), sonst mit seinem Symbol
+export function petAvatar(pet, size = '') {
+  const el = h('span', { class: ['avatar', size, pet.photo && 'photo'], style: { background: pet.color || 'var(--muted)' }, title: pet.name }, pet.emoji || '🐈');
+  if (pet.photo) {
+    const img = h('img', { src: `/api/photos/${pet.photo}`, alt: '', decoding: 'async' });
+    img.addEventListener('error', () => { img.remove(); el.classList.remove('photo'); });
+    el.append(img);
+  }
+  return el;
+}
+
 export function emptyState(emoji, text, action) {
   return h('div', { class: 'empty-big' }, h('span', { class: 'emoji' }, emoji), h('div', null, text), action ? h('div', { class: 'mt' }, action) : null);
 }

@@ -1,4 +1,4 @@
-import { h, today, addDays, fmtDate, fmtLong, relDay, fmtTime, fmtMoney, greeting, checkButton, toast, uid, nextBirthday } from '../ui.js';
+import { h, today, addDays, fmtDate, fmtLong, relDay, fmtTime, fmtMoney, greeting, checkButton, toast, uid, nextBirthday, petAvatar } from '../ui.js';
 import { agenda, whoInfo, taskBucket, completeTask, choreScore, balance, feedingsToday, categoryInfo } from '../domain.js';
 
 export function feedingCard(store, { compact = false } = {}) {
@@ -9,7 +9,7 @@ export function feedingCard(store, { compact = false } = {}) {
     h('div', { class: 'card-head' },
       h('span', { class: 'emoji' }, '🍽️'),
       h('h2', null, compact ? 'Fütterung' : `${pets.length ? pets.map((p) => p.name).join(' & ') : 'Katzen'} gefüttert?`),
-      h('span', { class: 'feed-cats', 'aria-hidden': 'true' }, pets.map((p) => p.emoji).join('')),
+      h('span', { class: 'feed-cats', 'aria-hidden': 'true' }, pets.map((p) => (p.photo ? petAvatar(p) : p.emoji))),
     ),
     h('div', { class: 'feed-grid' }, slots.map((slot) => {
       const entry = fed.find((f) => f.slot === slot);
