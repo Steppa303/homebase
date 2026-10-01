@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ssh vps *)",
+      "Bash(gh auth *)",
+      "Bash(gh repo *)",
+      "Bash(git ls-remote *)",
+      "Read(//Users/bl20/.ssh/**)",
+      "Bash(git config *)",
+      "Bash(echo \"exit=$?\")",
+      "Bash(node --test)",
+      "Bash(COPYFILE_DISABLE=1 tar czf - --exclude=./data --exclude=./node_modules --exclude=./test .)",
+      "Bash(curl -s -m 15 https://homebase.steppa.online/api/status)",
+      "Bash(curl -s -m 15 -o /dev/null -w \"%{http_code} %{content_type}\\\\n\" https://homebase.steppa.online/)"
+    ]
+  }
+}

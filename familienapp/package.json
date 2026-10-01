@@ -1,0 +1,16 @@
+{
+  "name": "unser-nest",
+  "version": "1.0.0",
+  "description": "Familien-Organisations-App für den Zwei-Personen-Haushalt (mit Katzen): Einkaufsliste, geteilter Kalender, Aufgaben, Essensplan, Haushaltskasse, Pinnwand.",
+  "main": "server.js",
+  "private": true,
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "license": "ISC"
+}
