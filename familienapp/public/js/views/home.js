@@ -90,7 +90,13 @@ function shoppingCard(store) {
     items.length
       ? [
         h('div', { class: 'stat' }, h('span', { class: 'big' }, items.length), h('span', { class: 'label' }, items.length === 1 ? 'Sache fehlt' : 'Sachen fehlen')),
-        h('div', { class: 'suggest mt' }, items.slice(0, 10).map((i) => h('span', { class: 'chip' }, h('span', null, categoryInfo(i.category).emoji), i.qty ? `${i.qty} ${i.text}` : i.text))),
+        h('div', { class: 'suggest mt' }, items.slice(0, 10).map((i) => h('button', {
+          type: 'button', class: 'chip', 'aria-label': `${i.text} abhaken`,
+          onclick: () => {
+            store.patch('shopping', i.id, { done: true, doneAt: new Date().toISOString(), doneBy: store.meId });
+            toast(`${i.text} ist im Wagen 🛒`, { undo: () => store.patch('shopping', i.id, { done: false, doneAt: null, doneBy: null }) });
+          },
+        }, h('span', null, categoryInfo(i.category).emoji), i.qty ? `${i.qty} ${i.text}` : i.text))),
       ]
       : h('div', { class: 'empty' }, 'Kühlschrank ist voll – nichts zu kaufen. 🧺'),
   );

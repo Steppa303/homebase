@@ -587,10 +587,12 @@ function createApp(options = {}) {
     fs.readFile(file, (err, buf) => {
       if (err) return send(res, 404, 'Nicht gefunden');
       const ext = path.extname(file);
-      const noCache = ext === '.html' || file.endsWith('sw.js') || ext === '.webmanifest';
+      // App-Code immer frisch: Cloudflare macht aus "no-cache"/kurzem max-age 4 h
+      // Browser-Cache, nur "no-store" wird respektiert. Offline sorgt der Service Worker.
+      const noStore = ['.html', '.js', '.css', '.webmanifest'].includes(ext);
       res.writeHead(200, {
         'Content-Type': MIME[ext] || 'application/octet-stream',
-        'Cache-Control': noCache ? 'no-cache' : 'public, max-age=300',
+        'Cache-Control': noStore ? 'no-store' : 'public, max-age=300',
       });
       res.end(req.method === 'HEAD' ? undefined : buf);
     });
